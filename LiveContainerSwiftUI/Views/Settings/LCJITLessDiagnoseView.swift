@@ -222,6 +222,7 @@ struct LCEntitlementView : View {
 struct LCJITLessDiagnoseView : View {
     @State var loaded = false
     @State var appGroupId = "Unknown"
+    @State var appGroupIdColor : Color = .gray
     @State var store : Store = .SideStore
     @State var certificateDataFound = false
     @State var certificatePasswordFound = false
@@ -259,7 +260,7 @@ struct LCJITLessDiagnoseView : View {
                         Text("lc.jitlessDiag.appGroupId".loc)
                         Spacer()
                         Text(appGroupId)
-                            .foregroundStyle(appGroupId == "Unknown" ? .red : .green)
+                            .foregroundStyle(appGroupIdColor)
                     }
                     HStack {
                         Text("lc.jitlessDiag.appGroupAccessible".loc)
@@ -407,7 +408,31 @@ struct LCJITLessDiagnoseView : View {
     }
     
     func onAppear() {
-        appGroupId = LCSharedUtils.appGroupID() ?? "lc.common.unknown".loc
+        
+        let task = SecTaskCreateFromSelf(nil)
+        guard let value = SecTaskCopyValueForEntitlement(task, "com.apple.developer.team-identifier" as CFString, nil), let teamId = value.takeRetainedValue() as? String else {
+            errorInfo = "Failed to read com.apple.developer.team-identifier"
+            errorShow = true
+            return
+        }
+        expectedTeamId = teamId
+        
+        if let fetchedAppGroupId = LCSharedUtils.appGroupID() {
+            appGroupId = fetchedAppGroupId
+            if UserDefaults.sideStoreExist() {
+                if fetchedAppGroupId == "group.com.SideStore.SideStore." + teamId {
+                    appGroupIdColor = .green
+                } else {
+                    appGroupIdColor = .orange
+                }
+            } else {
+                appGroupIdColor = .green
+            }
+        } else {
+            appGroupId = "lc.common.unknown".loc
+            appGroupIdColor = .red
+        }
+        
         store = LCUtils.store()
         appGroupAccessible = LCSharedUtils.appGroupPath() != nil
         certificateDataFound = LCUtils.certificateData() != nil
@@ -421,14 +446,7 @@ struct LCJITLessDiagnoseView : View {
         if certificateDataFound {
             validateCertificate()
         }
-        let task = SecTaskCreateFromSelf(nil)
-        guard let value = SecTaskCopyValueForEntitlement(task, "com.apple.developer.team-identifier" as CFString, nil), let teamId = value.takeRetainedValue() as? String else {
-            errorInfo = "Failed to read com.apple.developer.team-identifier"
-            errorShow = true
-            return
-        }
-        expectedTeamId = teamId
-        
+
         loaded = true
     }
     
