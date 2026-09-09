@@ -22,11 +22,6 @@ struct LiveContainerSwiftUIApp : SwiftUI.App {
         // Cleanup stale export temp artifacts from previous runs/interrupted shares.
         cleanupStaleExportArtifacts(fileManager: fm)
 
-        // Pick up 32-bit translation-layer apps embedded in installed tweak packages
-        // (e.g. LiveExec32's .deb) before scanning LCPath.bundlePath below, so they're
-        // included in this pass instead of requiring a second relaunch.
-        linkEmbedded32BitEmulatorAppsFromTweaks(fileManager: fm)
-
         do {
             // load apps
             try fm.createDirectory(at: LCPath.bundlePath, withIntermediateDirectories: true)
@@ -121,73 +116,6 @@ struct LiveContainerSwiftUIApp : SwiftUI.App {
         }
     }
     
-}
-
-// LiveExec32 and similar 32-bit translation-layer tweaks are distributed as a
-// .deb whose payload embeds a full guest .app (flagged via LC32BitTranslationLayer
-// in its own Info.plist, the same key AppNest uses for ipa-embedded translation
-// layers) rather than as an importable .ipa. Packages installed through the
-// tweaks section land under LCPath.tweakPath, which the "load apps" scan never
-// looks inside, so such an app would be usable as an injectable tweak but
-// invisible in the "default 32-bit emulator" picker (sharedModel.arm32EmuApps).
-// This symlinks any embedded translation-layer .app into LCPath.bundlePath —
-// idempotently, so repeat launches are a no-op — and marks it hidden so it
-// shows up as an emulator choice without cluttering the main app grid.
-private func linkEmbedded32BitEmulatorAppsFromTweaks(fileManager fm: FileManager) {
-    try? fm.createDirectory(at: LCPath.tweakPath, withIntermediateDirectories: true)
-    try? fm.createDirectory(at: LCPath.bundlePath, withIntermediateDirectories: true)
-
-    guard let packageDirs = try? fm.contentsOfDirectory(at: LCPath.tweakPath, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else {
-        return
-    }
-    let existingBundleLinks = (try? fm.contentsOfDirectory(at: LCPath.bundlePath, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
-    var linkedDestinations = Set(existingBundleLinks.compactMap { try? fm.destinationOfSymbolicLink(atPath: $0.path) })
-
-    for packageDir in packageDirs {
-        // Only deb-imported packages carry .lc-package.json; plain dylib/framework
-        // tweaks dropped in manually can never embed a guest .app, so skip them.
-        guard fm.fileExists(atPath: packageDir.appendingPathComponent(".lc-package.json").path) else {
-            continue
-        }
-        guard let enumerator = fm.enumerator(at: packageDir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else {
-            continue
-        }
-        while let item = enumerator.nextObject() as? URL {
-            guard item.pathExtension == "app" else { continue }
-            enumerator.skipDescendants()
-
-            guard let infoPlist = NSDictionary(contentsOf: item.appendingPathComponent("Info.plist")),
-                  (infoPlist["LC32BitTranslationLayer"] as? Bool) == true else {
-                continue
-            }
-            if linkedDestinations.contains(item.path) {
-                continue
-            }
-
-            let baseName = item.deletingPathExtension().lastPathComponent
-            var candidateName = "\(baseName).app"
-            var index = 1
-            while fm.fileExists(atPath: LCPath.bundlePath.appendingPathComponent(candidateName).path) {
-                candidateName = "\(baseName)-\(index).app"
-                index += 1
-            }
-            let linkURL = LCPath.bundlePath.appendingPathComponent(candidateName)
-
-            do {
-                try fm.createSymbolicLink(at: linkURL, withDestinationURL: item)
-            } catch {
-                NSLog("[LC] Failed to link 32-bit emulator app %@: %@", item.lastPathComponent, error.localizedDescription)
-                continue
-            }
-            linkedDestinations.insert(item.path)
-
-            guard let emulatorAppInfo = LCAppInfo(bundlePath: linkURL.path) else { continue }
-            emulatorAppInfo.relativeBundlePath = candidateName
-            emulatorAppInfo.isShared = false
-            emulatorAppInfo.isHidden = true
-            emulatorAppInfo.save()
-        }
-    }
 }
 
 private func cleanupStaleExportArtifacts(fileManager: FileManager) {
