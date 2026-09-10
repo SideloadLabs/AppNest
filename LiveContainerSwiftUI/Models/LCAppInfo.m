@@ -346,6 +346,7 @@
             completetionHandler(NO, error);
             return;
         }
+        self.is32bit = is32bit;
         if (!is32bit) {
             LCPatchAppBundleFixupARM64eSlice([NSURL fileURLWithPath:appPath]);
         } else {
@@ -357,7 +358,6 @@
         forceSign = true;
         
         [self save];
-        self.is32bit = is32bit;
     }
 
     if (!LCSharedUtils.certificatePassword || self.is32bit || self.dontSign) {
@@ -755,8 +755,10 @@
             sdkVersion = dyld_get_sdk_version((const struct mach_header *)header);
         });
         // Hardcode spoofed SDK to iOS 11 if lower, as lower causes `Error in compatibility flow` crashes
-        if((self.is32bit || sdkVersion) && sdkVersion < 0xb0000) {
-            sdkVersion = 0xb0000;
+        // for 32-bit apps, eg LiveExec32 has special hooks to fix issues, might cherry pick here later if needed
+        uint32_t minSDK = self.is32bit ? 0x20000 : 0xb0000;
+        if ((self.is32bit || sdkVersion) && sdkVersion < minSDK) {
+            sdkVersion = minSDK;
         }
         NSLog(@"[LC] sdkversion = %8x", sdkVersion);
         _info[@"spoofSDKVersion"] = [NSNumber numberWithUnsignedInt:sdkVersion];
