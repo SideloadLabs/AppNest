@@ -52,8 +52,8 @@ static Class _LSOpenConfigurationClass;
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
         [workspace openApplicationWithBundleIdentifier:bundleIdToLaunch usingConfiguration:config completionHandler:^(BOOL success1, NSError * err) {
-            dispatch_semaphore_signal(sema);
             success = success1;
+            dispatch_semaphore_signal(sema);
         }];
         dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
     }

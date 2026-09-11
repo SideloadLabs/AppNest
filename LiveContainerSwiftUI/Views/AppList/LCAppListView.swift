@@ -1044,6 +1044,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             } catch {
                 errorInfo = error.localizedDescription
                 errorShow = true
+                return
             }
         }
         
