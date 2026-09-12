@@ -1402,6 +1402,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     }
     bool is32bit = [guestAppInfo[@"is32bit"] boolValue];
     if(is32bit) {
+        [lcUserDefaults removeObjectForKey:@"LC32BitTranslationLayerLogFile"];
         if (!isJitEnabled) {
             return @"JIT is required to run 32-bit apps.";
         }
