@@ -592,16 +592,6 @@ static void installPathRedirectionHooks(void) {
     swizzle(NSFileManager.class, @selector(attributesOfItemAtPath:error:), @selector(hook_attributesOfItemAtPath:error:));
     swizzle(NSFileManager.class, @selector(contentsOfDirectoryAtPath:error:), @selector(hook_contentsOfDirectoryAtPath:error:));
     swizzle(NSFileManager.class, @selector(enumeratorAtPath:), @selector(hook_enumeratorAtPath:));
-    // NOTE: createDirectoryAtPath:withIntermediateDirectories:attributes:error: is intentionally NOT
-    // swizzled here. NSFileManager+GuestHooks.m (NSFMGuestHooksInit, called from LCBootstrap during
-    // guest process bootstrap) already swizzles this exact selector for the WebKit cookies-folder
-    // workaround. Swizzling it a second time here double-exchanges the same pair of IMPs, which
-    // un-does the first swap and leaves `hook_createDirectoryAtPath:...` pointing at itself. The
-    // old passthrough version of this hook (which did nothing but call itself, since it never even
-    // called redirectTweakResourcePath) then recursed into itself forever the first time anything
-    // (e.g. CFNetwork's HTTP alt-services SQLite store) called -createDirectoryAtPath:..., overflowing
-    // the stack and crashing with SIGBUS "Could not determine thread index for stack guard region".
-    // This hook never redirected anything anyway, so it's removed rather than renamed.
     swizzle(NSFileManager.class, @selector(removeItemAtPath:error:), @selector(hook_removeItemAtPath:error:));
     
     NSLog(@"[TweakLoader] Path redirection hooks installed");
