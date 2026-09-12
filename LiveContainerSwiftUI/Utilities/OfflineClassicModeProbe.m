@@ -38,6 +38,7 @@ static BOOL LCSetScalarIvar(id object, const char *name, const void *value, size
 @end
 
 @implementation LCFakeApplicationIdentity
+- (instancetype)copy { return self; }
 @end
 
 @interface LCFakeProcessIdentity : NSObject <NSCopying>
