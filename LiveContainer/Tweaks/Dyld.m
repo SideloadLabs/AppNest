@@ -801,6 +801,10 @@ void DyldHookLoadableIntoProcess(void) {
 // MARK: VPN Section
 
 static BOOL shouldFilterVPNInterfaceNameCStr(const char *name) {
+    // TEMP DEBUG: disable VPN interface hiding entirely to test whether it's
+    // responsible for the InfinitoK crash. Revert this once the test is done.
+    return NO;
+
     if (!name || name[0] == '\0') {
         return NO;
     }
