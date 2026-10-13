@@ -3427,50 +3427,6 @@
         }
       }
     },
-    "lc.appList.customLiveContainer.disableTweaks": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import without tweaks"
-          }
-        }
-      }
-    },
-    "lc.appList.customLiveContainer.enableTweaks": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enable AppNest tweaks"
-          }
-        }
-      }
-    },
-    "lc.appList.customLiveContainer.message %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Version %@ will be installed as a managed guest app; this does not update AppNest itself. AppNest cannot verify compatibility with this upstream version. If it fails to launch, reinstall it without AppNest tweaks."
-          }
-        }
-      }
-    },
-    "lc.appList.customLiveContainer.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import LiveContainer IPA"
-          }
-        }
-      }
-    },
     "lc.appList.installReplaceTip": {
       "extractionState": "manual",
       "localizations": {
