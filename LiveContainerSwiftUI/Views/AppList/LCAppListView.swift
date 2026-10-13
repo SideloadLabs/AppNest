@@ -269,6 +269,8 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     
     @State var installOptions: [AppReplaceOption]
     @StateObject var installReplaceAlert = AlertHelper<AppReplaceOption>()
+    @StateObject private var customLiveContainerImportAlert = AlertHelper<Bool>()
+    @State private var customLiveContainerImportVersion = "Unknown"
     
     @State var webViewOpened = false
     @State var webViewURL : URL = URL(string: "about:blank")!
@@ -735,6 +737,19 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         } message: {
             Text("lc.appList.installReplaceTip".loc)
         }
+        .alert("lc.appList.customLiveContainer.title".loc, isPresented: $customLiveContainerImportAlert.show) {
+            Button("lc.appList.customLiveContainer.enableTweaks".loc) {
+                customLiveContainerImportAlert.close(result: true)
+            }
+            Button("lc.appList.customLiveContainer.disableTweaks".loc) {
+                customLiveContainerImportAlert.close(result: false)
+            }
+            Button("lc.common.cancel".loc, role: .cancel) {
+                customLiveContainerImportAlert.close(result: nil)
+            }
+        } message: {
+            Text("lc.appList.customLiveContainer.message %@".localizeWithFormat(customLiveContainerImportVersion))
+        }
         .alert("lc.webView.runApp".loc, isPresented: $runWhenMultitaskAlert.show) {
             Button(role: .destructive) {
                 runWhenMultitaskAlert.close(result: true)
@@ -1079,6 +1094,12 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 
 
     
+    private func isLiveContainerIPA(_ appInfo: LCAppInfo) -> Bool {
+        let bundleIdentifier = appInfo.bundleIdentifier() ?? ""
+        let hasLiveContainerBundleIdentifier = bundleIdentifier == "com.kdt.livecontainer" || bundleIdentifier.hasPrefix("com.kdt.livecontainer.")
+        return hasLiveContainerBundleIdentifier || appInfo.urlSchemes().contains { $0.caseInsensitiveCompare("livecontainer") == .orderedSame }
+    }
+
     func startInstallApp(_ fileUrl:URL) async {
         do {
             self.installprogressVisible = true
@@ -1133,6 +1154,17 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         
         guard let newAppInfo = LCAppInfo(bundlePath: appFolderPath.path) else {
             throw "lc.appList.infoPlistCannotReadError".loc
+        }
+
+        var enableAppNestTweaksForCustomLiveContainer: Bool?
+        if isLiveContainerIPA(newAppInfo) {
+            customLiveContainerImportVersion = newAppInfo.version() ?? "Unknown"
+            guard let enableTweaks = await customLiveContainerImportAlert.open() else {
+                try? fm.removeItem(at: payloadPath)
+                self.installprogressVisible = false
+                return
+            }
+            enableAppNestTweaksForCustomLiveContainer = enableTweaks
         }
 
         // ── Update validation ─────────────────────────────────────────────────
@@ -1258,6 +1290,16 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             errorShow = true
             return
         }
+
+        if let enableAppNestTweaksForCustomLiveContainer {
+            finalNewApp.dontInjectTweakLoader = !enableAppNestTweaksForCustomLiveContainer
+            finalNewApp.dontLoadTweakLoader = !enableAppNestTweaksForCustomLiveContainer
+            if enableAppNestTweaksForCustomLiveContainer {
+                finalNewApp.info().removeObject(forKey: "LCTweakLoaderCantInject")
+                finalNewApp.info()["LCPatchRevision"] = 0
+                finalNewApp.save()
+            }
+        }
         
         // patch and sign it
         var signError : String? = nil
@@ -1317,6 +1359,11 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             // Set TweakLoader defaults for new apps (disable by default for security)
             finalNewApp.dontInjectTweakLoader = true
             finalNewApp.dontLoadTweakLoader = true
+        }
+        if let enableAppNestTweaksForCustomLiveContainer {
+            let injectionFailed = finalNewApp.info()["LCTweakLoaderCantInject"] as? Bool ?? false
+            finalNewApp.dontInjectTweakLoader = !enableAppNestTweaksForCustomLiveContainer || injectionFailed
+            finalNewApp.dontLoadTweakLoader = !enableAppNestTweaksForCustomLiveContainer
         }
         finalNewApp.installationDate = Date.now
         
